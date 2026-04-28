@@ -8,6 +8,7 @@ gunicorn==22.0.0
 
 # Database
 psycopg2-binary==2.9.9
+dj-database-url==2.2.0
 
 # Celery
 celery==5.4.0
