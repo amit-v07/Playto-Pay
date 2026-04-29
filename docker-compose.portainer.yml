@@ -9,27 +9,25 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-playtopay}
       POSTGRES_USER: ${POSTGRES_USER:-playtopay}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-playtopay_secret}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    command: postgres -c shared_buffers=256MB -c max_connections=200
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-playtopay}"]
       interval: 5s
       timeout: 5s
       retries: 10
-    ports:
-      - "5440:5432"
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
     volumes:
       - redis_data:/data
+    command: redis-server --requirepass ${REDIS_PASSWORD}
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
-    ports:
-      - "6379:6379"
 
   api:
     build:
@@ -41,12 +39,13 @@ services:
       sh -c "python manage.py migrate --noinput &&
              python manage.py collectstatic --noinput &&
              python manage.py seed_demo_data &&
-             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4 --timeout 120"
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile -"
     volumes:
       - ./backend:/app
       - static_files:/app/staticfiles
     environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.local
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
     env_file:
       - .env
     depends_on:
@@ -57,22 +56,23 @@ services:
     ports:
       - "8089:8000"
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/v1/merchants/register/ -X OPTIONS > /dev/null || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/health/ || exit 1"]
       interval: 15s
       timeout: 5s
-      retries: 12
-      start_period: 40s
+      retries: 5
+      start_period: 20s
 
   worker:
     build:
       context: ./backend
       dockerfile: ../Dockerfile
     restart: unless-stopped
-    command: celery -A config.celery_app worker --loglevel=info --concurrency=4
+    command: celery -A config.celery_app worker --loglevel=info --concurrency=4 --max-tasks-per-child=1000
     volumes:
       - ./backend:/app
     environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.local
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
     env_file:
       - .env
     depends_on:
@@ -90,7 +90,8 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.local
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
     env_file:
       - .env
     depends_on:
@@ -98,17 +99,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      api:
-        condition: service_healthy
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.frontend
-    restart: unless-stopped
-    ports:
-      - "3000:80"
-    depends_on:
       api:
         condition: service_healthy
 

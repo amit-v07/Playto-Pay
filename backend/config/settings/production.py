@@ -1,5 +1,6 @@
 from decouple import config
 import dj_database_url
+import sentry_sdk
 
 from .base import *  # noqa
 
@@ -25,6 +26,16 @@ USE_X_FORWARDED_HOST = True
 
 SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=True, cast=bool)
 CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=True, cast=bool)
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+
+# Static files via WhiteNoise
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 LOGGING = {
     "version": 1,
@@ -48,3 +59,12 @@ LOGGING = {
         "celery": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
+
+# Optional Sentry Integration
+SENTRY_DSN = config("SENTRY_DSN", default=None)
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+    )
