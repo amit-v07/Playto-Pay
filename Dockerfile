@@ -18,13 +18,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# Create a non-root user and group
-RUN addgroup --system django && adduser --system --group django
+# Copy project
+COPY . .
 
-# Copy project and chown to django user
-COPY --chown=django:django . .
-
-# Switch to non-root user
-USER django
+# Copy project
+COPY . .
 
 EXPOSE 8000
