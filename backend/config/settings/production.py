@@ -19,6 +19,20 @@ if config("DATABASE_URL", default=""):
         conn_max_age=600,
         ssl_require=config("DATABASE_SSL_REQUIRE", default=False, cast=bool),
     )
+else:
+    # In production (e.g., Render), avoid Docker-only defaults like host "db".
+    DATABASES["default"].update(
+        {
+            "NAME": config("POSTGRES_DB", default=config("PGDATABASE", default="playtopay")),
+            "USER": config("POSTGRES_USER", default=config("PGUSER", default="playtopay")),
+            "PASSWORD": config(
+                "POSTGRES_PASSWORD",
+                default=config("PGPASSWORD", default="playtopay_secret"),
+            ),
+            "HOST": config("POSTGRES_HOST", default=config("PGHOST", default="localhost")),
+            "PORT": config("POSTGRES_PORT", default=config("PGPORT", default="5432")),
+        }
+    )
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
