@@ -22,3 +22,8 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 COPY . .
 
 EXPOSE 8000
+
+# Run Django app on Render
+WORKDIR /app/backend
+ENV DJANGO_SETTINGS_MODULE=config.settings.production
+CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --timeout 120"]
