@@ -21,7 +21,4 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 # Copy project
 COPY . .
 
-# Copy project
-COPY . .
-
 EXPOSE 8000
